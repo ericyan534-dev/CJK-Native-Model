@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+
+# Ensure the repository root is importable when running this script directly.
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import torch
 from transformers import HfArgumentParser, Trainer, TrainingArguments, set_seed
