@@ -34,10 +34,23 @@ class DataCollatorForWWM:
     mlm_probability: float = 0.15
 
     def __call__(self, batch: List[str]) -> Dict[str, torch.Tensor]:
-        tokenized = [
-            self.tokenizer(list(text), is_split_into_words=True, return_tensors="pt", return_struct_ids=True)
-            for text in batch
-        ]
+        # Reserve two spots for [CLS] and [SEP].
+        max_chars = max(self.tokenizer.model_max_length - 2, 1)
+        tokenized = []
+        truncated_texts: List[str] = []
+        for text in batch:
+            truncated = text[:max_chars]
+            truncated_texts.append(truncated)
+            tokenized.append(
+                self.tokenizer(
+                    list(truncated),
+                    is_split_into_words=True,
+                    return_tensors="pt",
+                    return_struct_ids=True,
+                    truncation=True,
+                    max_length=self.tokenizer.model_max_length,
+                )
+            )
 
         input_ids = pad_sequence(
             [item["input_ids"].squeeze(0) for item in tokenized],
@@ -56,21 +69,21 @@ class DataCollatorForWWM:
         )
         labels = input_ids.clone()
 
-        word_boundaries = [self._segment(text) for text in batch]
+        word_boundaries = [self._segment(text) for text in truncated_texts]
         masked_indices = torch.zeros_like(input_ids, dtype=torch.bool)
-        flat_offset = 0
-        for tokens, boundaries in zip(tokenized, word_boundaries):
+        for row_idx, (tokens, boundaries) in enumerate(zip(tokenized, word_boundaries)):
+            # Account for [CLS] at position 0 and [SEP] at the final position.
             seq_len = tokens["input_ids"].size(1)
+            max_maskable = max(seq_len - 1, 1)
             mask_positions = self._choose_words(boundaries)
             for start, end in mask_positions:
-                masked_indices[flat_offset, start:end] = True
-            flat_offset += 1
+                adj_start = min(start + 1, max_maskable)
+                adj_end = min(end + 1, max_maskable)
+                if adj_start < adj_end:
+                    masked_indices[row_idx, adj_start:adj_end] = True
 
         labels[~masked_indices] = -100
         # Apply masking
-        probability_matrix = torch.full(labels.shape, self.mlm_probability)
-        special_tokens_mask = torch.zeros_like(labels, dtype=torch.bool)
-        probability_matrix.masked_fill_(special_tokens_mask, value=0.0)
         # 80% [MASK]
         mask_token_id = self.tokenizer.mask_token_id
         replace_with_mask = masked_indices & (torch.rand_like(input_ids.float()) < 0.8)

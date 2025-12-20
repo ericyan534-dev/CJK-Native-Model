@@ -43,6 +43,11 @@ class CNMBertTokenizer(BertTokenizer):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        # BERT-style models default to a 512 token limit; clamp the tokenizer to that
+        # when the provided vocab/config leaves the max length unset (which defaults to
+        # a very large sentinel value).
+        if self.model_max_length and self.model_max_length > 512:
+            self.model_max_length = 512
         if struct_path is None:
             struct_path = str(Path(__file__).resolve().parent.parent / "data" / "char_to_ids_tree.json")
         self.struct_path = Path(struct_path)
@@ -109,10 +114,10 @@ class CNMBertTokenizer(BertTokenizer):
         self.max_branching = max(branching, default=1)
         self.level_width = self.max_branching ** (self.max_depth - 1) if self.max_depth > 0 else 1
 
-        struct_tensors: List[torch.Tensor] = []
-        for token in self.vocab:
+        struct_tensors: List[torch.Tensor] = [torch.empty(0) for _ in range(self.vocab_size)]
+        for token, idx in self.vocab.items():
             tree_tensor = self._tensorize_tree(token)
-            struct_tensors.append(tree_tensor)
+            struct_tensors[idx] = tree_tensor
         return torch.stack(struct_tensors, dim=0)
 
     def _tensorize_tree(self, token: str) -> torch.Tensor:
@@ -145,9 +150,9 @@ class CNMBertTokenizer(BertTokenizer):
         return tensor
 
     def _build_struct_index_table(self) -> torch.Tensor:
-        ids: List[int] = []
-        for token in self.vocab:
-            ids.append(self._struct_index_for_token(token))
+        ids: List[int] = [0 for _ in range(self.vocab_size)]
+        for token, idx in self.vocab.items():
+            ids[idx] = self._struct_index_for_token(token)
         return torch.tensor(ids, dtype=torch.long)
 
     def _struct_index_for_token(self, token: str) -> int:
