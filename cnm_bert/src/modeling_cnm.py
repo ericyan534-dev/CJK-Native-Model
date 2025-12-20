@@ -255,11 +255,15 @@ class CNMBertModel(BertModel):
 class CNMForMaskedLM(BertForMaskedLM):
     def __init__(self, config: BertConfig, tree_encoder: Optional[TreeMLPEncoder] = None):
         super().__init__(config)
-        self.tree_encoder = tree_encoder
-        if self.tree_encoder is None:
-            self.tree_encoder = TreeMLPEncoder({}, ["[NONE]", "[UNK_STRUCT]"], struct_dim=256)
-        self.bert = CNMBertModel(config, self.tree_encoder)
+        if tree_encoder is None:
+            tree_encoder = TreeMLPEncoder({}, ["[NONE]", "[UNK_STRUCT]"], struct_dim=256)
+        self.bert = CNMBertModel(config, tree_encoder)
         self.post_init()
+
+    @property
+    def tree_encoder(self) -> TreeMLPEncoder:
+        # Expose the tree encoder without registering duplicate module references that break checkpoint saving.
+        return self.bert.embeddings.tree_encoder
 
     @classmethod
     def from_pretrained(
@@ -270,6 +274,7 @@ class CNMForMaskedLM(BertForMaskedLM):
         struct_dim: int = 256,
         **kwargs,
     ):
+        tree_path = Path(tree_path)
         config = BertConfig.from_pretrained(pretrained_model_name_or_path)
         if tree_path.exists():
             with tree_path.open("r", encoding="utf-8") as f:
