@@ -43,6 +43,11 @@ class CNMBertTokenizer(BertTokenizer):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        # BERT-style models default to a 512 token limit; clamp the tokenizer to that
+        # when the provided vocab/config leaves the max length unset (which defaults to
+        # a very large sentinel value).
+        if self.model_max_length and self.model_max_length > 512:
+            self.model_max_length = 512
         if struct_path is None:
             struct_path = str(Path(__file__).resolve().parent.parent / "data" / "char_to_ids_tree.json")
         self.struct_path = Path(struct_path)
