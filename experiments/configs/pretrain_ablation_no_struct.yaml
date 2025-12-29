@@ -1,0 +1,49 @@
+# Ablation: CNM-BERT without structural encoding (should collapse to BERT)
+
+seed: 42
+
+model:
+  init_from_bert: true
+  bert_model_name: "bert-base-chinese"
+  tree_path: "data/processed/char_to_ids_tree.json"
+  vocab_size: 21128
+  hidden_size: 768
+  num_hidden_layers: 12
+  num_attention_heads: 12
+  intermediate_size: 3072
+  struct_dim: 0  # Disable structural encoding
+  fusion_strategy: "concat"
+  freeze_bert_encoder: false
+
+tokenizer:
+  vocab_path: "bert-base-chinese"
+  struct_path: "data/processed/char_to_ids_tree.json"
+
+data:
+  train_file: "data/pretrain/corpus_clean.txt"
+  val_file: null
+  max_train_samples: null
+  max_val_samples: null
+
+collator:
+  mlm_probability: 0.15
+  max_seq_length: 512
+
+training:
+  output_dir: "experiments/logs/ablation_no_struct"
+  num_train_epochs: 3
+  max_steps: 1000000
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 64
+  gradient_accumulation_steps: 1
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  warmup_steps: 10000
+  logging_steps: 100
+  save_steps: 10000
+  save_total_limit: 3
+  eval_steps: 50000
+  fp16: true
+  num_workers: 4
+  use_wandb: true
+  run_name: "cnm-bert-ablation-no-struct"

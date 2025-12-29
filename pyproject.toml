@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cnm-bert"
+version = "0.1.0"
+description = "CNM-BERT: Integrating Orthographic Compositionality into Chinese Pre-trained Language Models via Ideographic Description Sequences"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "CNM-BERT Team"}
+]
+keywords = ["nlp", "bert", "chinese", "transformers", "compositionality"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "torch>=2.2.0",
+    "transformers>=4.38.0",
+    "tokenizers>=0.15.0",
+    "datasets>=2.16.0",
+    "accelerate>=0.26.0",
+    "jieba>=0.42.1",
+    "numpy>=1.24.0",
+    "tqdm>=4.65.0",
+    "wandb>=0.16.0",
+    "tensorboard>=2.15.0",
+    "scikit-learn>=1.3.0",
+    "scipy>=1.11.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "jupyter>=1.0.0",
+    "ipython>=8.14.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/cnm-bert"
+Repository = "https://github.com/yourusername/cnm-bert"
+
+[tool.setuptools]
+packages = ["cnm_bert"]
+package-dir = {"" = "src"}
+
+[tool.black]
+line-length = 120
+target-version = ['py39', 'py310', 'py311']
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = "-v --cov=cnm_bert --cov-report=term-missing"
