@@ -179,19 +179,52 @@ class IDSParser:
         # Leaf node (component character)
         return TreeNode(leaf=char), idx + 1
 
-    def parse_ids_line(self, line: str) -> Optional[Tuple[str, TreeNode]]:
+    def extract_ids_from_column(self, col: str) -> Optional[str]:
+        """Extract IDS expression from BabelStone column format.
+
+        BabelStone format: ^IDS_EXPRESSION$(REGION_CODES)
+        Examples:
+            ^⿱一亅$(GHTJKPV) → ⿱一亅
+            ^〾⿻一乚$(GHJKPV) → ⿻一乚 (strip 〾 marker)
+
+        Args:
+            col: Column string
+
+        Returns:
+            IDS expression or None if not valid
+        """
+        col = col.strip()
+
+        # Extract content between ^ and $
+        if not col.startswith("^") or "$" not in col:
+            return None
+
+        # Find the $ position
+        dollar_pos = col.index("$")
+        ids_expr = col[1:dollar_pos]  # Skip ^ and take until $
+
+        # Strip special marker 〾 if present (indicates non-standard)
+        if ids_expr.startswith("〾"):
+            ids_expr = ids_expr[1:]
+
+        return ids_expr if ids_expr else None
+
+    def parse_ids_line(self, line: str) -> Optional[List[Tuple[str, TreeNode]]]:
         """Parse a single line from BabelStone IDS file.
 
-        Format: CHARACTER<tab>IDS_EXPRESSION
-        Example: 好\t⿰女子
+        Format: CODEPOINT<tab>CHARACTER<tab>^IDS$(REGIONS)<tab>^IDS$(REGIONS)...
+        Example: U+597D\t好\t^⿰女子$(GHTJKPV)
 
         Args:
             line: Line from IDS file
 
         Returns:
-            Tuple of (character, tree) or None if line should be skipped
+            List of (character, tree) tuples (may have multiple IDS per character)
+            or None if line should be skipped
         """
-        line = line.strip()
+        # Strip BOM if present
+        line = line.lstrip('\ufeff').strip()
+
         if not line or line.startswith("#"):
             return None
 
@@ -200,34 +233,47 @@ class IDSParser:
             self.stats["skipped_malformed"] += 1
             return None
 
-        parts = line.split("\t", maxsplit=1)
-        if len(parts) != 2:
+        parts = line.split("\t")
+        if len(parts) < 3:  # Need at least: codepoint, char, ids
             self.stats["skipped_malformed"] += 1
             return None
 
-        char, expr = parts
+        # Extract character (column 1)
+        char = parts[1]
 
         # Filter PUA characters
-        if self.contains_pua(line):
+        if self.contains_pua(char):
             self.stats["skipped_pua"] += 1
             return None
 
-        # Parse expression
-        try:
-            tree, consumed = self.parse_ids_expression(expr)
-        except ValueError as e:
-            logger.debug(f"Failed to parse IDS for '{char}': {e}")
+        # Parse all IDS expressions (columns 2+)
+        results = []
+        for ids_col in parts[2:]:
+            # Extract IDS from ^...$(...) format
+            ids_expr = self.extract_ids_from_column(ids_col)
+            if not ids_expr:
+                continue
+
+            # Parse expression
+            try:
+                tree, consumed = self.parse_ids_expression(ids_expr)
+            except ValueError as e:
+                logger.debug(f"Failed to parse IDS for '{char}': {ids_expr} - {e}")
+                continue
+
+            # Verify entire expression was consumed
+            if consumed != len(ids_expr):
+                logger.debug(f"Trailing characters in IDS for '{char}': {ids_expr[consumed:]}")
+                continue
+
+            results.append((char, tree))
+
+        if results:
+            self.stats["parsed"] += len(results)
+            return results
+        else:
             self.stats["skipped_malformed"] += 1
             return None
-
-        # Verify entire expression was consumed
-        if consumed != len(expr):
-            logger.debug(f"Trailing characters in IDS for '{char}': {expr[consumed:]}")
-            self.stats["skipped_malformed"] += 1
-            return None
-
-        self.stats["parsed"] += 1
-        return char, tree
 
     def canonicalize_trees(self, trees: List[TreeNode]) -> TreeNode:
         """Select canonical tree when multiple IDS exist for same character.
@@ -341,10 +387,11 @@ class IDSParser:
         with open(ids_file, "r", encoding="utf-8") as f:
             for line in f:
                 self.stats["total_lines"] += 1
-                result = self.parse_ids_line(line)
-                if result:
-                    char, tree = result
-                    char_to_trees[char].append(tree)
+                results = self.parse_ids_line(line)
+                if results:
+                    # results is now a list of (char, tree) tuples
+                    for char, tree in results:
+                        char_to_trees[char].append(tree)
 
         # Canonicalize: select best tree for each character
         canonical: Dict[str, TreeNode] = {}
