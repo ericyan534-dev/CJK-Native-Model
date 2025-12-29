@@ -97,6 +97,18 @@ def analyze_ids_file(ids_file: Path, num_samples: int = 20):
         print(f"  {line}")
     print()
 
+    # NEW: Show actual data lines with multiple tabs
+    print("Sample DATA lines (with multiple tabs):")
+    print("-" * 70)
+    data_lines = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+    for i, line in enumerate(data_lines[:10]):
+        parts = line.split("\t")
+        print(f"Line {i+1}: {len(parts)} columns")
+        for j, part in enumerate(parts):
+            print(f"  Column {j}: {repr(part)}")
+        print()
+    print()
+
     # Check for BOM or special characters
     first_line = lines[0] if lines else ""
     if first_line.startswith('\ufeff'):
