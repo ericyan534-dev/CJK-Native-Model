@@ -201,7 +201,7 @@ def main():
         warmup_steps=training_config.get("warmup_steps", 10000),
 
         # Evaluation
-        eval_strategy="steps" if val_dataset else "no",  # Changed from evaluation_strategy
+        evaluation_strategy="steps" if val_dataset else "no",  # Changed from evaluation_strategy
         eval_steps=training_config.get("eval_steps", 10000),
 
         # Logging
