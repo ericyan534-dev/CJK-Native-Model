@@ -189,7 +189,7 @@ class TreeMLPEncoder(nn.Module):
 
         Args:
             node: Tree node dictionary
-            device: Target device
+            device: Target device (used only for creating zero tensors)
 
         Returns:
             Node embedding of shape (struct_dim,)
@@ -198,13 +198,15 @@ class TreeMLPEncoder(nn.Module):
         if "leaf" in node:
             comp = node["leaf"]
             comp_idx = self.component_index.get(comp, self.component_index["[UNK_COMP]"])
-            emb = self.component_embeddings.weight[comp_idx].to(device)
+            # Access embedding directly - it's already on the correct device via DDP
+            emb = self.component_embeddings.weight[comp_idx]
             return self.layer_norm(emb)
 
         # Internal node: compose children with operator
         op = node.get("op", "[UNK_OP]")
         op_idx = self.operator_index.get(op, self.operator_index["[UNK_OP]"])
-        op_emb = self.operator_embeddings.weight[op_idx].to(device)
+        # Access embedding directly - it's already on the correct device via DDP
+        op_emb = self.operator_embeddings.weight[op_idx]
 
         children = node.get("children", [])
         child_embeddings = [self._encode_tree(child, device) for child in children]
