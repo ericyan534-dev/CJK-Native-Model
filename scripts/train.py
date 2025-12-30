@@ -17,11 +17,13 @@ from pathlib import Path
 import numpy as np
 
 import torch
-from transformers import (
-    TrainingArguments,
-    Trainer,
-    set_seed,
-)
+
+# Force-import the canonical Hugging Face classes (avoids any local shadowing)
+import importlib
+_transformers = importlib.import_module("transformers")
+TrainingArguments = importlib.import_module("transformers.training_args").TrainingArguments
+Trainer = importlib.import_module("transformers.trainer").Trainer
+set_seed = _transformers.set_seed
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
