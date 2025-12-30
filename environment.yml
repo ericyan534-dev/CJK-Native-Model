@@ -12,7 +12,6 @@ dependencies:
   - pytorch::torchvision
   - pytorch::torchaudio
   - pytorch::pytorch-cuda=12.1
-  - cudatoolkit=12.1
   - pip:
       - transformers==4.38.2
       - tokenizers==0.15.2
