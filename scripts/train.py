@@ -17,13 +17,11 @@ from pathlib import Path
 import numpy as np
 
 import torch
-
-# Force-import the canonical Hugging Face classes (avoids any local shadowing)
-import importlib
-_transformers = importlib.import_module("transformers")
-TrainingArguments = importlib.import_module("transformers.training_args").TrainingArguments
-Trainer = importlib.import_module("transformers.trainer").Trainer
-set_seed = _transformers.set_seed
+from transformers import (
+    TrainingArguments,
+    Trainer,
+    set_seed,
+)
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -182,7 +180,6 @@ def main():
     # Training arguments
     output_dir = args.output_dir or training_config["output_dir"]
 
-    # Use correct parameter names for transformers 4.38.2
     training_args = TrainingArguments(
         # Output
         output_dir=str(output_dir),
@@ -201,10 +198,6 @@ def main():
         learning_rate=training_config.get("learning_rate", 1e-4),
         weight_decay=training_config.get("weight_decay", 0.01),
         warmup_steps=training_config.get("warmup_steps", 10000),
-
-        # Evaluation
-        evaluation_strategy="steps" if val_dataset else "no",  # Changed from evaluation_strategy
-        eval_steps=training_config.get("eval_steps", 10000),
 
         # Logging
         logging_dir=str(Path(output_dir) / "logs"),
@@ -228,8 +221,6 @@ def main():
         run_name=training_config.get("run_name", "cnm-bert-pretrain"),
         seed=seed,
         disable_tqdm=False,
-        load_best_model_at_end=True if val_dataset else False,
-        metric_for_best_model="eval_loss" if val_dataset else None,
     )
 
     logger.info("Training configuration:")
@@ -249,10 +240,10 @@ def main():
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=val_dataset,
+        eval_dataset=None,
         data_collator=data_collator,
         tokenizer=tokenizer,
-        compute_metrics=compute_metrics if val_dataset else None,
+        compute_metrics=None,
     )
 
     # Train
@@ -275,13 +266,6 @@ def main():
     trainer.log_metrics("train", metrics)
     trainer.save_metrics("train", metrics)
     trainer.save_state()
-
-    # Final evaluation
-    if val_dataset:
-        logger.info("Running final evaluation...")
-        eval_metrics = trainer.evaluate()
-        trainer.log_metrics("eval", eval_metrics)
-        trainer.save_metrics("eval", eval_metrics)
 
     logger.info("=" * 70)
     logger.info("Training complete!")
