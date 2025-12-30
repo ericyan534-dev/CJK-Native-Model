@@ -107,5 +107,34 @@ class TextLineDataset(Dataset):
         Returns:
             dict: {"text": str} format expected by collator
         """
-        # Access via property (handles lazy loading)
-        return {"text": self.texts[idx]}
+        import sys
+        import traceback
+
+        try:
+            # Debug logging for first few items
+            if idx < 3:
+                print(f"[DATASET __getitem__] Called with idx={idx}", file=sys.stderr)
+                print(f"[DATASET __getitem__] self._texts is None: {self._texts is None}", file=sys.stderr)
+                print(f"[DATASET __getitem__] hasattr(self, '_texts'): {hasattr(self, '_texts')}", file=sys.stderr)
+
+            # Access via property (handles lazy loading)
+            texts = self.texts
+
+            if idx < 3:
+                print(f"[DATASET __getitem__] texts length: {len(texts)}", file=sys.stderr)
+                print(f"[DATASET __getitem__] Accessing texts[{idx}]", file=sys.stderr)
+
+            result = {"text": texts[idx]}
+
+            if idx < 3:
+                print(f"[DATASET __getitem__] Returning: {result}", file=sys.stderr)
+
+            return result
+
+        except Exception as e:
+            print(f"[DATASET __getitem__] EXCEPTION at idx={idx}: {e}", file=sys.stderr)
+            print(f"[DATASET __getitem__] Traceback:", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            print(f"[DATASET __getitem__] self.__dict__ = {self.__dict__}", file=sys.stderr)
+            # Re-raise instead of silently returning {}
+            raise

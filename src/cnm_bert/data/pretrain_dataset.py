@@ -96,16 +96,39 @@ class PreTrainingDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Dict[str, str]:
         """Get item at index via property (handles lazy loading)."""
-        lines = self.lines  # Access via property
+        import sys
+        import traceback
 
-        if idx < 0 or idx >= len(lines):
-            raise IndexError(f"Index {idx} out of range for dataset of size {len(lines)}")
+        try:
+            # Debug logging for first few items
+            if idx < 3:
+                print(f"[PRETRAIN_DATASET __getitem__] Called with idx={idx}", file=sys.stderr)
+                print(f"[PRETRAIN_DATASET __getitem__] self._lines is None: {self._lines is None}", file=sys.stderr)
 
-        text = lines[idx]
-        if not text:
-            raise ValueError(f"Empty text at index {idx}")
+            lines = self.lines  # Access via property
 
-        return {"text": text}
+            if idx < 3:
+                print(f"[PRETRAIN_DATASET __getitem__] lines length: {len(lines)}", file=sys.stderr)
+
+            if idx < 0 or idx >= len(lines):
+                raise IndexError(f"Index {idx} out of range for dataset of size {len(lines)}")
+
+            text = lines[idx]
+            if not text:
+                raise ValueError(f"Empty text at index {idx}")
+
+            result = {"text": text}
+
+            if idx < 3:
+                print(f"[PRETRAIN_DATASET __getitem__] Returning: {result}", file=sys.stderr)
+
+            return result
+
+        except Exception as e:
+            print(f"[PRETRAIN_DATASET __getitem__] EXCEPTION at idx={idx}: {e}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            print(f"[PRETRAIN_DATASET __getitem__] self.__dict__ = {self.__dict__}", file=sys.stderr)
+            raise
 
 
 class StreamingPreTrainingDataset(IterableDataset):
