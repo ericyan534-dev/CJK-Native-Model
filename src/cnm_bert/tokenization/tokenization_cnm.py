@@ -292,6 +292,7 @@ class CNMBertTokenizer(BertTokenizer):
         return_attention_mask: Optional[bool] = None,
         return_tensors: Optional[str] = None,
         verbose: bool = True,
+        **kwargs  # Accept any additional arguments from parent class
     ) -> Dict[str, Union[List[List[int]], torch.Tensor]]:
         """Pad encoded inputs (including struct_ids).
 
@@ -316,6 +317,7 @@ class CNMBertTokenizer(BertTokenizer):
             return_attention_mask=return_attention_mask,
             return_tensors=None,  # Convert later
             verbose=verbose,
+            **kwargs  # Pass through additional arguments
         )
 
         # Pad struct_ids if present
