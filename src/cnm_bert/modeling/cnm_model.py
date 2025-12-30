@@ -336,10 +336,16 @@ class CNMForMaskedLM(BertPreTrainedModel):
         cnm_model = cls(config)
 
         # Copy BERT weights
+        # Encoder
         cnm_model.cnm.encoder.load_state_dict(bert_model.bert.encoder.state_dict())
-        cnm_model.cnm.embeddings.word_embeddings.load_state_dict(bert_model.bert.embeddings.word_embeddings.state_dict())
-        cnm_model.cnm.embeddings.position_embeddings.load_state_dict(bert_model.bert.embeddings.position_embeddings.state_dict())
-        cnm_model.cnm.embeddings.token_type_embeddings.load_state_dict(bert_model.bert.embeddings.token_type_embeddings.state_dict())
+
+        # Embeddings - copy weights directly (nn.Embedding doesn't have load_state_dict)
+        cnm_model.cnm.embeddings.word_embeddings.weight.data.copy_(bert_model.bert.embeddings.word_embeddings.weight.data)
+        cnm_model.cnm.embeddings.position_embeddings.weight.data.copy_(bert_model.bert.embeddings.position_embeddings.weight.data)
+        cnm_model.cnm.embeddings.token_type_embeddings.weight.data.copy_(bert_model.bert.embeddings.token_type_embeddings.weight.data)
+        cnm_model.cnm.embeddings.LayerNorm.load_state_dict(bert_model.bert.embeddings.LayerNorm.state_dict())
+
+        # MLM head
         cnm_model.cls.load_state_dict(bert_model.cls.state_dict())
 
         return cnm_model

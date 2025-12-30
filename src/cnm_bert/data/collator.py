@@ -107,7 +107,11 @@ class WWMDataCollator:
         word_boundaries = self._get_word_boundaries(words, tokens)
 
         # Select words to mask
+        if len(word_boundaries) == 0:
+            # No words to mask, return unchanged
+            return input_ids, labels
         num_to_mask = max(1, int(len(word_boundaries) * self.mlm_probability))
+        num_to_mask = min(num_to_mask, len(word_boundaries))  # Don't try to sample more than available
         words_to_mask = random.sample(range(len(word_boundaries)), num_to_mask)
 
         # Initialize labels with -100 (ignore in loss)

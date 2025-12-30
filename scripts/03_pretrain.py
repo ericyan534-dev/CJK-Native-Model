@@ -151,7 +151,7 @@ def main():
 
     # Validation dataset (optional)
     val_dataset = None
-    if "val_file" in data_config:
+    if data_config.get("val_file"):
         val_dataset = PreTrainingDataset(
             file_path=Path(data_config["val_file"]),
             max_samples=data_config.get("max_val_samples"),
