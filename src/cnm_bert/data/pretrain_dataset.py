@@ -1,15 +1,20 @@
-"""Pre-training dataset for CNM-BERT."""
+"""Pre-training dataset for CNM-BERT.
+
+Designed to work correctly with multi-GPU distributed training using proper
+pickling strategies to avoid serializing large datasets across processes.
+"""
 
 from pathlib import Path
-from typing import Dict, Iterator, Optional
+from typing import Dict, Iterator, Optional, List
 
 from torch.utils.data import Dataset, IterableDataset
 
 
 class PreTrainingDataset(Dataset):
-    """Line-by-line text dataset for pre-training.
+    """Line-by-line text dataset for pre-training with DDP support.
 
     Each line in the file is treated as a separate document.
+    Uses __getstate__/__setstate__ to avoid pickling millions of text lines.
 
     Args:
         file_path: Path to text file (one sentence per line)
@@ -24,30 +29,79 @@ class PreTrainingDataset(Dataset):
         # Store as string to ensure pickling works
         self.file_path_str = str(Path(file_path).resolve())
         self.max_samples = max_samples
+        self._lines = None  # Will be loaded lazily
+        self._length = None  # Cache length
 
-        # Load data immediately
+        # Load data immediately in main process
+        self._load_data()
+
+    def _load_data(self):
+        """Load text data from file.
+
+        Called during __init__ and after unpickling in worker processes.
+        """
+        if self._lines is not None:
+            return  # Already loaded
+
         file_path_obj = Path(self.file_path_str)
         if not file_path_obj.exists():
             raise FileNotFoundError(f"Corpus file not found: {self.file_path_str}")
 
         # Load all lines into memory (fast random access)
         with open(self.file_path_str, "r", encoding="utf-8") as f:
-            self.lines = [line.strip() for line in f if line.strip()]
+            self._lines = [line.strip() for line in f if line.strip()]
 
-        if not self.lines:
+        if not self._lines:
             raise ValueError(f"Corpus file is empty: {self.file_path_str}")
 
         if self.max_samples:
-            self.lines = self.lines[:self.max_samples]
+            self._lines = self._lines[:self.max_samples]
+
+        # Cache length
+        self._length = len(self._lines)
+
+    @property
+    def lines(self) -> List[str]:
+        """Lazy-load lines if not available (handles unpickling)."""
+        if self._lines is None:
+            self._load_data()
+        return self._lines
+
+    def __getstate__(self):
+        """Prepare state for pickling (multi-GPU serialization).
+
+        Only pickle the file path and settings, NOT the text data.
+        """
+        return {
+            'file_path_str': self.file_path_str,
+            'max_samples': self.max_samples,
+            '_length': self._length,
+        }
+
+    def __setstate__(self, state):
+        """Restore from pickle (in worker process).
+
+        Data will be reloaded lazily on first access.
+        """
+        self.file_path_str = state['file_path_str']
+        self.max_samples = state['max_samples']
+        self._length = state.get('_length')
+        self._lines = None  # Will be loaded on first access
 
     def __len__(self) -> int:
+        """Return dataset length using cached value if available."""
+        if self._length is not None:
+            return self._length
         return len(self.lines)
 
     def __getitem__(self, idx: int) -> Dict[str, str]:
-        if idx < 0 or idx >= len(self.lines):
-            raise IndexError(f"Index {idx} out of range for dataset of size {len(self.lines)}")
+        """Get item at index via property (handles lazy loading)."""
+        lines = self.lines  # Access via property
 
-        text = self.lines[idx]
+        if idx < 0 or idx >= len(lines):
+            raise IndexError(f"Index {idx} out of range for dataset of size {len(lines)}")
+
+        text = lines[idx]
         if not text:
             raise ValueError(f"Empty text at index {idx}")
 
