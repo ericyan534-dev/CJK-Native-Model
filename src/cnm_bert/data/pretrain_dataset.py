@@ -22,7 +22,12 @@ class PreTrainingDataset(Dataset):
         max_samples: Optional[int] = None
     ):
         self.file_path = Path(file_path)
+        self.max_samples = max_samples
+        self.lines = None  # Will be loaded lazily
+        self._load_data()
 
+    def _load_data(self):
+        """Load data from file. Called in __init__ and __getstate__ for pickling."""
         if not self.file_path.exists():
             raise FileNotFoundError(f"Corpus file not found: {self.file_path}")
 
@@ -33,20 +38,37 @@ class PreTrainingDataset(Dataset):
         if not self.lines:
             raise ValueError(f"Corpus file is empty: {self.file_path}")
 
-        if max_samples:
-            self.lines = self.lines[:max_samples]
+        if self.max_samples:
+            self.lines = self.lines[:self.max_samples]
 
-        print(f"Loaded {len(self.lines)} examples from {self.file_path}")
+    def __getstate__(self):
+        """Custom pickling to handle multiprocessing."""
+        # Return state without the lines data - will be reloaded in worker
+        return {'file_path': self.file_path, 'max_samples': self.max_samples}
+
+    def __setstate__(self, state):
+        """Custom unpickling to reload data in worker processes."""
+        self.file_path = state['file_path']
+        self.max_samples = state['max_samples']
+        self.lines = None
+        self._load_data()
 
     def __len__(self) -> int:
+        if self.lines is None:
+            self._load_data()
         return len(self.lines)
 
     def __getitem__(self, idx: int) -> Dict[str, str]:
+        if self.lines is None:
+            self._load_data()
+
         if idx < 0 or idx >= len(self.lines):
             raise IndexError(f"Index {idx} out of range for dataset of size {len(self.lines)}")
+
         text = self.lines[idx]
         if not text:
             raise ValueError(f"Empty text at index {idx}")
+
         return {"text": text}
 
 

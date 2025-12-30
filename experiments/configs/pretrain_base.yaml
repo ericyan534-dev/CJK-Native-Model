@@ -51,7 +51,7 @@ training:
   save_total_limit: 3
   eval_steps: 50000
   fp16: true
-  num_workers: 4
+  num_workers: 0  # Set to 0 to avoid multiprocessing issues with dataset
   use_wandb: true
   run_name: "cnm-bert-base-pretrain"
 
