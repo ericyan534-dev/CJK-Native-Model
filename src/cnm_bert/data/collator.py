@@ -41,6 +41,17 @@ class WWMDataCollator:
         Returns:
             Dictionary with input_ids, struct_ids, attention_mask, labels
         """
+        # DEBUG: Log what collator receives
+        import sys
+        print(f"\n[COLLATOR __call__] Received {len(examples)} examples", file=sys.stderr)
+        print(f"[COLLATOR __call__] examples type: {type(examples)}", file=sys.stderr)
+        if len(examples) > 0:
+            print(f"[COLLATOR __call__] examples[0] type: {type(examples[0])}", file=sys.stderr)
+            print(f"[COLLATOR __call__] examples[0] value: {examples[0]}", file=sys.stderr)
+            if isinstance(examples[0], dict):
+                print(f"[COLLATOR __call__] examples[0] keys: {list(examples[0].keys())}", file=sys.stderr)
+                print(f"[COLLATOR __call__] examples[0] values: {list(examples[0].values())[:100]}", file=sys.stderr)
+
         # Extract texts
         texts = []
         for i, example in enumerate(examples):
