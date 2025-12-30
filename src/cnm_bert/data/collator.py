@@ -41,8 +41,22 @@ class WWMDataCollator:
         Returns:
             Dictionary with input_ids, struct_ids, attention_mask, labels
         """
-        # Extract texts
-        texts = [example["text"] for example in examples]
+        # Extract texts - handle both dict and direct string formats
+        texts = []
+        for example in examples:
+            if isinstance(example, dict):
+                if "text" in example:
+                    texts.append(example["text"])
+                elif "input_ids" in example:
+                    # Already tokenized - decode it
+                    texts.append(self.tokenizer.decode(example["input_ids"], skip_special_tokens=True))
+                else:
+                    # Debug: print what keys are available
+                    raise ValueError(f"Example dict missing 'text' or 'input_ids' key. Available keys: {list(example.keys())}")
+            elif isinstance(example, str):
+                texts.append(example)
+            else:
+                raise ValueError(f"Unexpected example type: {type(example)}, value: {example}")
 
         # Tokenize batch
         batch_encoding = self.tokenizer(

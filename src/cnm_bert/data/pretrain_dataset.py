@@ -30,14 +30,24 @@ class PreTrainingDataset(Dataset):
         with open(self.file_path, "r", encoding="utf-8") as f:
             self.lines = [line.strip() for line in f if line.strip()]
 
+        if not self.lines:
+            raise ValueError(f"Corpus file is empty: {self.file_path}")
+
         if max_samples:
             self.lines = self.lines[:max_samples]
+
+        print(f"Loaded {len(self.lines)} examples from {self.file_path}")
 
     def __len__(self) -> int:
         return len(self.lines)
 
     def __getitem__(self, idx: int) -> Dict[str, str]:
-        return {"text": self.lines[idx]}
+        if idx < 0 or idx >= len(self.lines):
+            raise IndexError(f"Index {idx} out of range for dataset of size {len(self.lines)}")
+        text = self.lines[idx]
+        if not text:
+            raise ValueError(f"Empty text at index {idx}")
+        return {"text": text}
 
 
 class StreamingPreTrainingDataset(IterableDataset):
