@@ -40,16 +40,29 @@ class PreTrainingDataset(Dataset):
 
         Called during __init__ and after unpickling in worker processes.
         """
+        import os
+
         if self._lines is not None:
             return  # Already loaded
 
         file_path_obj = Path(self.file_path_str)
         if not file_path_obj.exists():
-            raise FileNotFoundError(f"Corpus file not found: {self.file_path_str}")
+            raise FileNotFoundError(
+                f"Corpus file not found: {self.file_path_str}\n"
+                f"Current working directory: {os.getcwd()}\n"
+                f"This usually means the file path is not absolute or the file was moved."
+            )
 
-        # Load all lines into memory (fast random access)
-        with open(self.file_path_str, "r", encoding="utf-8") as f:
-            self._lines = [line.strip() for line in f if line.strip()]
+        try:
+            # Load all lines into memory (fast random access)
+            with open(self.file_path_str, "r", encoding="utf-8") as f:
+                self._lines = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load dataset from {self.file_path_str}\n"
+                f"Error: {e}\n"
+                f"Current working directory: {os.getcwd()}"
+            ) from e
 
         if not self._lines:
             raise ValueError(f"Corpus file is empty: {self.file_path_str}")

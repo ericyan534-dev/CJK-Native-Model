@@ -28,8 +28,11 @@ class TextLineDataset(Dataset):
             file_path: Path to text file (one line per example)
             max_samples: Optional limit on examples
         """
-        # Store everything as basic types (picklable)
-        self.file_path = str(file_path)
+        import os
+
+        # CRITICAL: Store ABSOLUTE path for multi-process compatibility
+        # Worker processes may have different working directories
+        self.file_path = os.path.abspath(str(file_path))
         self.max_samples = max_samples
         self._texts = None  # Will be loaded lazily
         self._length = None  # Cache length for efficiency
@@ -42,11 +45,28 @@ class TextLineDataset(Dataset):
 
         Called during __init__ and after unpickling in worker processes.
         """
+        import os
+
         if self._texts is not None:
             return  # Already loaded
 
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            self._texts = [line.strip() for line in f if line.strip()]
+        # Verify file exists (critical for debugging in worker processes)
+        if not os.path.exists(self.file_path):
+            raise FileNotFoundError(
+                f"Dataset file not found: {self.file_path}\n"
+                f"Current working directory: {os.getcwd()}\n"
+                f"This usually means the file path is not absolute or the file was moved."
+            )
+
+        try:
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                self._texts = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load dataset from {self.file_path}\n"
+                f"Error: {e}\n"
+                f"Current working directory: {os.getcwd()}"
+            ) from e
 
         if not self._texts:
             raise ValueError(f"No text found in {self.file_path}")
@@ -65,7 +85,16 @@ class TextLineDataset(Dataset):
         the dataset is unpickled in a worker process.
         """
         if self._texts is None:
-            self._load_data()
+            import sys
+            print(f"[DATASET texts property] _texts is None, calling _load_data()", file=sys.stderr)
+            try:
+                self._load_data()
+                print(f"[DATASET texts property] _load_data() succeeded, loaded {len(self._texts)} items", file=sys.stderr)
+            except Exception as e:
+                print(f"[DATASET texts property] _load_data() FAILED: {e}", file=sys.stderr)
+                import traceback
+                traceback.print_exc(file=sys.stderr)
+                raise
         return self._texts
 
     def __getstate__(self):
@@ -75,6 +104,13 @@ class TextLineDataset(Dataset):
         This prevents sending millions of strings across processes.
         Each worker will reload from disk instead.
         """
+        import sys
+        import os
+        print(f"[DATASET __getstate__] Pickling dataset", file=sys.stderr)
+        print(f"[DATASET __getstate__] file_path: {self.file_path}", file=sys.stderr)
+        print(f"[DATASET __getstate__] file exists: {os.path.exists(self.file_path)}", file=sys.stderr)
+        print(f"[DATASET __getstate__] _length: {self._length}", file=sys.stderr)
+
         return {
             'file_path': self.file_path,
             'max_samples': self.max_samples,
@@ -87,10 +123,20 @@ class TextLineDataset(Dataset):
         Reinitialize with file path and settings.
         Data will be reloaded lazily on first access.
         """
+        import sys
+        import os
+        print(f"[DATASET __setstate__] Unpickling dataset in worker process", file=sys.stderr)
+        print(f"[DATASET __setstate__] PID: {os.getpid()}", file=sys.stderr)
+        print(f"[DATASET __setstate__] Current dir: {os.getcwd()}", file=sys.stderr)
+
         self.file_path = state['file_path']
         self.max_samples = state['max_samples']
         self._length = state.get('_length')  # Use cached length if available
         self._texts = None  # Will be loaded on first __getitem__ access
+
+        print(f"[DATASET __setstate__] Restored file_path: {self.file_path}", file=sys.stderr)
+        print(f"[DATASET __setstate__] File exists: {os.path.exists(self.file_path)}", file=sys.stderr)
+        print(f"[DATASET __setstate__] _texts is None: {self._texts is None}", file=sys.stderr)
 
     def __len__(self):
         """Return dataset length.
