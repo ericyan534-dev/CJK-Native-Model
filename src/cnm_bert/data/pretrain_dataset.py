@@ -21,47 +21,29 @@ class PreTrainingDataset(Dataset):
         file_path: Path,
         max_samples: Optional[int] = None
     ):
-        self.file_path = Path(file_path)
+        # Store as string to ensure pickling works
+        self.file_path_str = str(Path(file_path).resolve())
         self.max_samples = max_samples
-        self.lines = None  # Will be loaded lazily
-        self._load_data()
 
-    def _load_data(self):
-        """Load data from file. Called in __init__ and __getstate__ for pickling."""
-        if not self.file_path.exists():
-            raise FileNotFoundError(f"Corpus file not found: {self.file_path}")
+        # Load data immediately
+        file_path_obj = Path(self.file_path_str)
+        if not file_path_obj.exists():
+            raise FileNotFoundError(f"Corpus file not found: {self.file_path_str}")
 
         # Load all lines into memory (fast random access)
-        with open(self.file_path, "r", encoding="utf-8") as f:
+        with open(self.file_path_str, "r", encoding="utf-8") as f:
             self.lines = [line.strip() for line in f if line.strip()]
 
         if not self.lines:
-            raise ValueError(f"Corpus file is empty: {self.file_path}")
+            raise ValueError(f"Corpus file is empty: {self.file_path_str}")
 
         if self.max_samples:
             self.lines = self.lines[:self.max_samples]
 
-    def __getstate__(self):
-        """Custom pickling to handle multiprocessing."""
-        # Return state without the lines data - will be reloaded in worker
-        return {'file_path': self.file_path, 'max_samples': self.max_samples}
-
-    def __setstate__(self, state):
-        """Custom unpickling to reload data in worker processes."""
-        self.file_path = state['file_path']
-        self.max_samples = state['max_samples']
-        self.lines = None
-        self._load_data()
-
     def __len__(self) -> int:
-        if self.lines is None:
-            self._load_data()
         return len(self.lines)
 
     def __getitem__(self, idx: int) -> Dict[str, str]:
-        if self.lines is None:
-            self._load_data()
-
         if idx < 0 or idx >= len(self.lines):
             raise IndexError(f"Index {idx} out of range for dataset of size {len(self.lines)}")
 

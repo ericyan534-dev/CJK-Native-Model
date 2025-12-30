@@ -188,7 +188,8 @@ def main():
         eval_steps=training_config.get("eval_steps", 50000),
         evaluation_strategy="steps" if val_dataset else "no",
         fp16=training_config.get("fp16", True),
-        dataloader_num_workers=training_config.get("num_workers", 4),
+        dataloader_num_workers=0,  # CRITICAL: Force 0 workers to avoid pickling issues
+        dataloader_persistent_workers=False,
         ddp_find_unused_parameters=False,
         report_to=["tensorboard", "wandb"] if training_config.get("use_wandb", False) else ["tensorboard"],
         run_name=training_config.get("run_name", "cnm-bert-pretrain"),
