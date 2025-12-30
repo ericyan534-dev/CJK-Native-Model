@@ -26,6 +26,10 @@ from transformers import (
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+# Import debug trainer
+from debug_trainer import DebugTrainer
+from debug_dataset_wrapper import DebugDatasetWrapper
+
 from cnm_bert import CNMConfig, CNMForMaskedLM, CNMBertTokenizer
 from cnm_bert.data.dataset import TextLineDataset
 from cnm_bert.data.collator import WWMDataCollator
@@ -155,21 +159,25 @@ def main():
     data_config = config.get("data", {})
     logger.info("Loading datasets...")
 
-    train_dataset = TextLineDataset(
+    train_dataset_raw = TextLineDataset(
         file_path=data_config["train_file"],
         max_samples=data_config.get("max_train_samples"),
     )
-    logger.info(f"Train dataset: {len(train_dataset):,} examples")
+    logger.info(f"Train dataset: {len(train_dataset_raw):,} examples")
 
     # DEBUG: Verify dataset has the fix
     import sys
-    print(f"\n[DEBUG train.py] Dataset class: {train_dataset.__class__}", file=sys.stderr)
-    print(f"[DEBUG train.py] Has __getstate__: {hasattr(train_dataset, '__getstate__')}", file=sys.stderr)
-    print(f"[DEBUG train.py] Has __setstate__: {hasattr(train_dataset, '__getstate__')}", file=sys.stderr)
-    print(f"[DEBUG train.py] Dataset __dict__ keys: {list(train_dataset.__dict__.keys())}", file=sys.stderr)
-    print(f"[DEBUG train.py] Test dataset[0]: {train_dataset[0]}", file=sys.stderr)
-    print(f"[DEBUG train.py] Type of dataset[0]: {type(train_dataset[0])}", file=sys.stderr)
-    print(f"[DEBUG train.py] Keys in dataset[0]: {list(train_dataset[0].keys())}\n", file=sys.stderr)
+    print(f"\n[DEBUG train.py] Dataset class: {train_dataset_raw.__class__}", file=sys.stderr)
+    print(f"[DEBUG train.py] Has __getstate__: {hasattr(train_dataset_raw, '__getstate__')}", file=sys.stderr)
+    print(f"[DEBUG train.py] Has __setstate__: {hasattr(train_dataset_raw, '__getstate__')}", file=sys.stderr)
+    print(f"[DEBUG train.py] Dataset __dict__ keys: {list(train_dataset_raw.__dict__.keys())}", file=sys.stderr)
+    print(f"[DEBUG train.py] Test dataset[0]: {train_dataset_raw[0]}", file=sys.stderr)
+    print(f"[DEBUG train.py] Type of dataset[0]: {type(train_dataset_raw[0])}", file=sys.stderr)
+    print(f"[DEBUG train.py] Keys in dataset[0]: {list(train_dataset_raw[0].keys())}\n", file=sys.stderr)
+
+    # Wrap dataset with debug logging
+    train_dataset = DebugDatasetWrapper(train_dataset_raw)
+    print(f"[DEBUG train.py] Wrapped dataset for monitoring\n", file=sys.stderr)
 
     val_dataset = None
     if data_config.get("val_file"):
@@ -227,6 +235,10 @@ def main():
         # DDP
         ddp_find_unused_parameters=False,
 
+        # CRITICAL: Disable dispatch_batches to prevent Accelerate from breaking dataset
+        # This prevents Accelerate from wrapping/modifying the dataset in ways that break it
+        dispatch_batches=False,
+
         # Misc
         run_name=training_config.get("run_name", "cnm-bert-pretrain"),
         seed=seed,
@@ -245,8 +257,8 @@ def main():
     logger.info(f"  Validation: {'Yes' if val_dataset else 'No'}")
     logger.info(f"  W&B: {'Yes' if training_config.get('use_wandb', False) else 'No'}")
 
-    # Create Trainer
-    trainer = Trainer(
+    # Create Trainer (using DebugTrainer for debugging)
+    trainer = DebugTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
