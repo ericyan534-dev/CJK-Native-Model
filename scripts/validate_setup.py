@@ -187,7 +187,7 @@ def test_training_args():
         max_steps=1000,
         logging_steps=10,
         save_steps=100,
-        eval_strategy="steps",  # Correct parameter name
+        evaluation_strategy="steps",  # transformers 4.38.2 uses evaluation_strategy
         eval_steps=100,
         fp16=torch.cuda.is_available(),
         dataloader_num_workers=0,
