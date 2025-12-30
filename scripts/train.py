@@ -161,6 +161,16 @@ def main():
     )
     logger.info(f"Train dataset: {len(train_dataset):,} examples")
 
+    # DEBUG: Verify dataset has the fix
+    import sys
+    print(f"\n[DEBUG train.py] Dataset class: {train_dataset.__class__}", file=sys.stderr)
+    print(f"[DEBUG train.py] Has __getstate__: {hasattr(train_dataset, '__getstate__')}", file=sys.stderr)
+    print(f"[DEBUG train.py] Has __setstate__: {hasattr(train_dataset, '__getstate__')}", file=sys.stderr)
+    print(f"[DEBUG train.py] Dataset __dict__ keys: {list(train_dataset.__dict__.keys())}", file=sys.stderr)
+    print(f"[DEBUG train.py] Test dataset[0]: {train_dataset[0]}", file=sys.stderr)
+    print(f"[DEBUG train.py] Type of dataset[0]: {type(train_dataset[0])}", file=sys.stderr)
+    print(f"[DEBUG train.py] Keys in dataset[0]: {list(train_dataset[0].keys())}\n", file=sys.stderr)
+
     val_dataset = None
     if data_config.get("val_file"):
         val_dataset = TextLineDataset(
@@ -250,6 +260,15 @@ def main():
     logger.info("=" * 70)
     logger.info("Starting training...")
     logger.info("=" * 70)
+
+    # DEBUG: Check what dataset Trainer actually has
+    import sys
+    print(f"\n[DEBUG train.py] Trainer.train_dataset type: {type(trainer.train_dataset)}", file=sys.stderr)
+    print(f"[DEBUG train.py] Trainer.train_dataset class: {trainer.train_dataset.__class__}", file=sys.stderr)
+    print(f"[DEBUG train.py] Is same object as train_dataset: {trainer.train_dataset is train_dataset}", file=sys.stderr)
+    print(f"[DEBUG train.py] Trainer.train_dataset length: {len(trainer.train_dataset)}", file=sys.stderr)
+    print(f"[DEBUG train.py] Trainer.train_dataset[0]: {trainer.train_dataset[0]}", file=sys.stderr)
+    print(f"[DEBUG train.py] About to call trainer.train()...\n", file=sys.stderr)
 
     # Resume from checkpoint if specified
     resume_from = str(args.resume_from_checkpoint) if args.resume_from_checkpoint else None
